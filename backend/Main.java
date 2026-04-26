@@ -5,28 +5,45 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 public class Main {
+
+   static String url = "jdbc:mariadb://192.168.0.18:3306/LoveCode";
+    static String usuario = "root";
+    static String contrasena = "1234";
+
     public static void main(String[] args) {
-        String url = "jdbc:mysql://localhost:3306/lovecode";
-        String usuario = "root";
-        String contrasena = "1234567890";
 
         try {
             Connection conexion = DriverManager.getConnection(url, usuario, contrasena);
-            System.out.println("Conexión establecida con la base de datos");
+            System.out.println("Conexion exitosa a la base de datos");
 
-            Statement consulta = conexion.createStatement();
-            ResultSet resultado = consulta.executeQuery("SELECT * FROM Usuarios");
-
-            while (resultado.next()) {
-                System.out.println("Usuario: " + resultado.getString("nombre"));
-            }
+            consultarUsuarios(conexion);
+            consultarTecnologias(conexion);
 
             conexion.close();
+            System.out.println("Conexion cerrada");
 
         } catch (SQLException e) {
             System.out.println("Error al conectar: " + e.getMessage());
         }
     }
+
+    static void consultarUsuarios(Connection conexion) throws SQLException {
+        Statement consulta = conexion.createStatement();
+        ResultSet resultado = consulta.executeQuery("SELECT * FROM Usuarios");
+
+        System.out.println("Lista Usuarios:");
+        while (resultado.next()) {
+            System.out.println("- " + resultado.getString("nombre"));
+        }
+    }
+
+    static void consultarTecnologias(Connection conexion) throws SQLException {
+        Statement consulta = conexion.createStatement();
+        ResultSet resultado = consulta.executeQuery("SELECT * FROM Tecnologias");
+
+        System.out.println("Lista de tecnologías:");
+        while (resultado.next()) {
+            System.out.println("- " + resultado.getString("nombre"));
+        }
+    }
 }
-
-

@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LoveCode - Perfiles</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    body { display:block; background:#0d0306; }
+
+    .navbar {
+      display:flex; justify-content:space-between; align-items:center;
+      background:#2d0a12; padding:14px 24px;
+      border-bottom:1px solid #8b1a2a;
+    }
+    .navbar span { font-size:1.2rem; color:#ff9aa2; font-weight:bold; }
+    .navbar button { width:auto; padding:7px 16px; font-size:13px; margin:0; }
+
+    .grid {
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap:1.2rem; padding:2rem;
+      max-width:1000px; margin:0 auto;
+    }
+
+    .tarjeta {
+      background:#2d0a12; border:1px solid #8b1a2a;
+      border-radius:12px; padding:1.5rem;
+      text-align:center; box-shadow:0 2px 8px rgba(0,0,0,.3);
+      color:#ffffff;
+    }
+
+    .avatar {
+      width:60px; height:60px; border-radius:50%;
+      background:linear-gradient(135deg,#c0392b,#ff9aa2);
+      color:#fff; font-size:1.6rem;
+      display:flex; align-items:center; justify-content:center;
+      margin:0 auto 1rem;
+    }
+
+    .tarjeta h3   { font-size:1rem; margin-bottom:.4rem; color:#ffffff; }
+    .tarjeta .desc { font-size:13px; color:#e8c0c5; margin-bottom:.8rem; }
+
+    .tags { display:flex; flex-wrap:wrap; gap:5px; justify-content:center; margin-bottom:.8rem; }
+    .tag  { background:#1a0508; color:#e8c0c5; border:1px solid #8b1a2a; font-size:11px; padding:3px 9px; border-radius:20px; }
+    .tag.verde { background:#0a3d1f; color:#a9dfbf; border-color:#1e8449; }
+
+    .btn-like { width:auto; padding:7px 20px; font-size:14px; margin-top:0; border-radius:20px; }
+    .btn-like:disabled { background:#555; cursor:default; }
+
+    .modal-fondo {
+      display:none; position:fixed; inset:0;
+      background:rgba(0,0,0,.6);
+      justify-content:center; align-items:center; z-index:100;
+    }
+    .modal-fondo.visible { display:flex; }
+    .modal-caja {
+      background:#2d0a12; border:1px solid #8b1a2a;
+      border-radius:16px; padding:2.5rem;
+      max-width:400px; width:90%; text-align:center; color:#ffffff;
+    }
+    .modal-caja h2 { color:#ff9aa2; font-size:1.5rem; margin-bottom:1rem; }
+    .modal-caja p  { margin-bottom:.5rem; font-size:14px; }
+    #btn-cerrar { width:auto; padding:9px 28px; margin-top:1.2rem; border-radius:20px; }
+  </style>
+</head>
+<body>
+
+  <div class="navbar">
+    <span>LoveCode</span>
+    <button onclick="salir()">Salir</button>
+  </div>
+
+  <div class="grid" id="grid">
+    <p style="color:#e8c0c5; text-align:center; grid-column:1/-1;">Cargando perfiles...</p>
+  </div>
+
+  <div class="modal-fondo" id="modal">
+    <div class="modal-caja">
+      <h2>¡Es un Match! 🎉</h2>
+      <div id="info-match"></div>
+      <button id="btn-cerrar" onclick="cerrarModal()">Seguir explorando</button>
+    </div>
+  </div>
+
+  <script>
+    const SERVIDOR = 'http://localhost:8080';
+    const idSesion = sessionStorage.getItem('idSesion');
+
+    if (!idSesion) window.location.href = 'login.html';
+
+    function salir() {
+      sessionStorage.clear();
+      window.location.href = 'login.html';
+    }
+
+    async function cargarPerfiles() {
+      const grid = document.getElementById('grid');
+      try {
+        const respuesta = await fetch(SERVIDOR + '/perfiles?idSesion=' + idSesion);
+        const perfiles  = await respuesta.json();
+
+        if (perfiles.length === 0) {
+          grid.innerHTML = '<p style="color:#e8c0c5;text-align:center;grid-column:1/-1;">No hay más perfiles.</p>';
+          return;
+        }
+
+        grid.innerHTML = '';
+        perfiles.forEach(p => grid.appendChild(crearTarjeta(p)));
+
+      } catch(e) {
+        grid.innerHTML = '<p style="color:#e8c0c5;text-align:center;">Error al cargar perfiles.</p>';
+      }
+    }
+
+    function crearTarjeta(perfil) {
+      const div = document.createElement('div');
+      div.className = 'tarjeta';
+
+      const inicial  = perfil.nombre.charAt(0).toUpperCase();
+      const tagsHtml = perfil.tecnologias.length
+        ? perfil.tecnologias.map(t => `<span class="tag">${t}</span>`).join('')
+        : '<span class="tag">Sin tecnologías</span>';
+
+      div.innerHTML = `
+        <div class="avatar">${inicial}</div>
+        <h3>${perfil.nombre}</h3>
+        <p class="desc">${perfil.descripcion || ''}</p>
+        <div class="tags">${tagsHtml}</div>
+        <button class="btn-like" onclick="darLike(this, ${perfil.id})">❤️ Like</button>
+      `;
+
+      return div;
+    }
+
+    async function darLike(boton, idReceptor) {
+      boton.disabled  = true;
+      boton.textContent = '✓ Like enviado';
+
+      try {
+        const respuesta = await fetch(SERVIDOR + '/like', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idEmisor: parseInt(idSesion), idReceptor: idReceptor })
+        });
+
+        const datos = await respuesta.json();
+
+        if (datos.match) mostrarMatch(datos.xml);
+
+      } catch(e) {
+        console.log('Error al dar like: ' + e.message);
+      }
+    }
+
+    function mostrarMatch(xmlTexto) {
+      const parser = new DOMParser();
+      const doc    = parser.parseFromString(xmlTexto, 'application/xml');
+
+      const nombre1 = doc.querySelector('usuario1 nombre')?.textContent || '';
+      const nombre2 = doc.querySelector('usuario2 nombre')?.textContent || '';
+      const fecha   = doc.querySelector('fecha')?.textContent || '';
+      const comunes = Array.from(doc.querySelectorAll('tecnologias_comunes tecnologia'))
+                          .map(n => n.textContent);
+
+      const tagsHtml = comunes.length
+        ? comunes.map(t => `<span class="tag verde">${t}</span>`).join('')
+        : 'Ninguna tecnología en común de momento';
+
+      document.getElementById('info-match').innerHTML = `
+        <p><strong>${nombre1}</strong> y <strong>${nombre2}</strong> tienen match ❤️</p>
+        <p style="font-size:12px; color:#e8c0c5;">Fecha: ${fecha}</p>
+        <br>
+        <p>Tecnologías en común:</p>
+        <div class="tags" style="justify-content:center; margin-top:8px;">${tagsHtml}</div>
+        <br>
+        <button onclick="verFichaXSLT()" style="width:auto; padding:7px 16px; font-size:13px; margin-top:0; border-radius:20px;">
+          Ver ficha completa
+        </button>
+      `;
+
+      window._ultimoXml = xmlTexto;
+      document.getElementById('modal').classList.add('visible');
+    }
+
+    function verFichaXSLT() {
+      if (!window._ultimoXml) return;
+
+      fetch('match.xsl')
+        .then(r => r.text())
+        .then(xslTexto => {
+          const parser   = new DOMParser();
+          const xmlDoc   = parser.parseFromString(window._ultimoXml, 'application/xml');
+          const xslDoc   = parser.parseFromString(xslTexto, 'application/xml');
+
+          const xslt     = new XSLTProcessor();
+          xslt.importStylesheet(xslDoc);
+          const resultado = xslt.transformToDocument(xmlDoc);
+
+          const html  = new XMLSerializer().serializeToString(resultado);
+          const blob  = new Blob([html], { type: 'text/html' });
+          const url   = URL.createObjectURL(blob);
+          window.open(url, '_blank');
+        })
+        .catch(e => console.log('Error al cargar el XSLT: ' + e.message));
+    }
+
+    function cerrarModal() {
+      document.getElementById('modal').classList.remove('visible');
+    }
+
+    cargarPerfiles();
+  </script>
+</body>
+</html>

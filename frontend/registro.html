@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LoveCode - Registro</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <div class="box" style="width:420px;">
+    <h1>LoveCode</h1>
+    <p>Crea tu perfil de desarrollador.</p>
+
+    <div id="msg" style="display:none; padding:8px; border-radius:5px; margin-bottom:10px; font-size:13px;"></div>
+
+    <label>Nombre</label>
+    <input id="nombre" type="text" placeholder="Tu nombre"/>
+
+    <label>Email</label>
+    <input id="email" type="email" placeholder="tu@correo.com"/>
+
+    <label>Contraseña</label>
+    <input id="password" type="password" placeholder="••••••••"/>
+
+    <label>Descripción</label>
+    <textarea id="descripcion" rows="3"
+      style="width:100%; padding:8px; border:1px solid #8b1a2a; border-radius:5px; font-size:14px; margin-bottom:1rem; box-sizing:border-box; background:#1a0508; color:#ffffff;"
+      placeholder="Cuéntanos algo sobre ti..."></textarea>
+
+    <label>Tecnologías que dominas</label>
+    <div id="tecs" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:1rem; color:#ffffff;">
+      Cargando...
+    </div>
+
+    <button onclick="hacerRegistro()">Crear cuenta</button>
+
+    <div class="footer">¿Ya tienes cuenta? <a href="login.html">Inicia sesión</a></div>
+  </div>
+
+  <script>
+    const SERVIDOR = 'http://localhost:8080';
+
+    async function cargarTecnologias() {
+      try {
+        const respuesta = await fetch(SERVIDOR + '/tecnologias');
+        const tecs = await respuesta.json();
+        const div = document.getElementById('tecs');
+        div.innerHTML = '';
+        tecs.forEach(t => {
+          const lbl = document.createElement('label');
+          lbl.style.cssText = 'display:flex; align-items:center; gap:5px; font-size:13px; background:#2d0a12; padding:5px 10px; border-radius:20px; border:1px solid #8b1a2a; cursor:pointer; color:#ffffff;';
+          lbl.innerHTML = `<input type="checkbox" value="${t.id}"> ${t.nombre}`;
+          div.appendChild(lbl);
+        });
+      } catch(e) {
+        const div = document.getElementById('tecs');
+        div.textContent = 'Error al cargar tecnologías';
+        div.style.color = '#ffffff';
+      }
+    }
+
+    cargarTecnologias();
+
+    async function hacerRegistro() {
+      const nombre      = document.getElementById('nombre').value;
+      const email       = document.getElementById('email').value;
+      const password    = document.getElementById('password').value;
+      const descripcion = document.getElementById('descripcion').value;
+
+      const marcadas = document.querySelectorAll('#tecs input:checked');
+      const tecnologias = Array.from(marcadas).map(c => parseInt(c.value));
+
+      if (!nombre || !email || !password) {
+        mostrarMensaje('Rellena los campos obligatorios', 'error');
+        return;
+      }
+
+      try {
+        const respuesta = await fetch(SERVIDOR + '/registro', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nombre, email, password, descripcion, tecnologias })
+        });
+
+        const datos = await respuesta.json();
+
+        if (datos.ok) {
+          sessionStorage.setItem('idSesion', datos.id);
+          window.location.href = 'perfiles.html';
+        } else {
+          mostrarMensaje(datos.error, 'error');
+        }
+
+      } catch(e) {
+        mostrarMensaje('No se puede conectar con el servidor', 'error');
+      }
+    }
+
+    function mostrarMensaje(texto, tipo) {
+      const msg = document.getElementById('msg');
+      msg.textContent  = texto;
+      msg.style.display = 'block';
+      msg.style.background = tipo === 'error' ? '#5a0a0a' : '#0a3d1f';
+      msg.style.color      = '#ffffff';
+    }
+  </script>
+</body>
+</html>
